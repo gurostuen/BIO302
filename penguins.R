@@ -7,6 +7,4 @@ p <- penguins |>
   group_by(species, sex) |> 
   drop_na(bill_length_mm, bill_depth_mm)
 
-p
-
 
