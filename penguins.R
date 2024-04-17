@@ -3,7 +3,7 @@ library(tidyverse)
 penguins
 
 p <- penguins |> 
-  drop_na(sex) |> 
-  group_by(species, sex) 
+  drop_na(sex) 
+
 
 p
