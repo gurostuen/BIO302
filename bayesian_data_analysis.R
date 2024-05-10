@@ -5,7 +5,7 @@
 # Question I) Build a Bayesian model that answers the question: What would the rate of sign-up 
 # be if method A was used on a larger number of people?
 
-n_draws <- 10000 # Number of random draws from the prior
+n_draws <- 20000 # Number of random draws from the prior
 
 prior_rate <- runif(n_draws, 0, 1) # Defining and drawing from the prior distribution 
 hist(prior_rate) # Uniform prior
@@ -60,19 +60,15 @@ quantile(signups, c(0.025, 0.975))
 
 # Question I) Build a Bayesian model in Stan that answers the question: What is the probability that method B is better than method A?
 
-s ~ binomial(size, rate);
-
-rate ~  uniform(0, 1);
-
 library(rstan)
 
 # The Stan model as a string.
 model_string <- "
 data {
-  # Number of trials
+  // Number of trials
   int nA;
   int nB;
-  # Number of successes
+  // Number of successes
   int sA;
   int sB;
 }
@@ -95,22 +91,15 @@ generated quantities {
 }
 "
 
-# In the generated quantiles block you can calculate 'derivatives' of
-# the parameters. Here is a silly example calculating the square of the rate. 
-# Variables have to be defined before they are assigned to.
-generated quantities {
-  real rate_squared;
-  rate_squared = rate^2;
-}
-
 data_list <- list(nA = 16, nB = 16, sA = 6, sB = 10)
 
 # Compiling and producing posterior samples from the model.
-stan_samples <- stan(model_code = model_string, data = data_list)
+stan_samples <- stan(model_code = model_string, 
+                     data = data_list)
 
 # Plotting and summarizing the posterior distribution
 stan_samples
-traceplot(stan_samples)
+traceplot(stan_samples) # See if the model converged
 plot(stan_samples)
 
 # Export the samples to a data.frame for easier handling.
@@ -143,3 +132,13 @@ hist(profitB)
 hist(profitA - profitB)
 expected_profit_diff <- mean(profitA - profitB)
 abline(v = expected_profit_diff, col = "red", lwd =2)
+
+
+
+# Testing brms package
+
+library(brms)
+plant_data <- iris
+
+model <- brm(Petal.Length ~ Sepal.Length, data = plant_data)
+summary(model)
