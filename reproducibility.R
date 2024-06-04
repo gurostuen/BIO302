@@ -34,3 +34,8 @@ figure <- ggplot(data = fish_summary, aes(x = habitat, y = mean_length)) +
                      limits = c(0, 50))
 
 figure
+
+# Statistical analysis?
+glm <- lm(standard_length_mm ~ habitat, data = fish_length)
+anova(glm)
+summary(glm)
