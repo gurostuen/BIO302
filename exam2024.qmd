@@ -1,0 +1,462 @@
+---
+title: "BIO302 Home Exam 2024"
+author: Guro Ødegårdstuen
+date: today
+bibliography: references.bib
+csl: apa.csl
+format: 
+  html:
+    link-external-newwindow: true
+    self-contained: true
+    code-tools: 
+      source: true
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+## Part A: Reproducibility
+
+Choose a paper that: - interests you - claims to have open data - uses methods that you can use.
+
+Identify the main result and try to reproduce it from the available data, the description of the methods, and other resources (if the paper has several main results, choose one).
+Spend no more than 2-3 hours on this (if it takes longer, the paper was not easy to reproduce!).
+
+If you are trying to reproduce a figure, there is no need to match colour scales etc, just the scientific content.
+
+Archive the code and text on GitHub and include the link to your repo in your answer here:
+
+[**BIO302 repository**](https://github.com/gurostuen/BIO302.git)**: The code is in the script called "reproducibility.R"**
+
+-   Make at least two commits to git.
+-   Cite the original paper and data.
+-   Make your reproduction as reproducible as possible (i.e. it should be possible for me to reproduce your work after cloning your repo and downloading the data).
+
+1.  **Discuss how well you managed to reproduce the part of the paper you were working on and what challenges you faced.**
+
+I believe I successfully managed to recreate figure 1 from the paper [@Welsh2013]. While doing so, I observed that the truncated y-axis exaggerated the visual difference in fish size, making a relatively small difference (~4 mm) appear much larger. While this could be seen as potentially misleading, it is worth noting that the study did report a statistically significant difference in fish size between habitats (p = 0.0228). My reproduction of their analysis also yielded a significant p-value, although I suspect my approach differed somewhat from theirs. Despite the methodological differences, if the original analysis is accurate, the use of a truncated y-axis can indeed help emphasize the finding and make the differences more visually apparent. 
+
+2.  **Discuss what how well the original paper meets best practice for reproducibility, i.e. what could the authors have done to make their analysis more reproducible, and what they did well.**
+
+Overall, I think the authors have done a good job at making their analysis reproducible. Their data set [@WelshData2012] is publicly available, easy to import and required minimal cleaning. Additionally, the supplementary materials of the paper [@Welsh2013] provide comprehensive information about the study species, sites, sampling methods, and statistical techniques. However, I encountered some issues with the abbreviations of the populations in the data set. The authors excluded three populations (Curtis Creek, Homer Dam, and Richter Site) from the age 1 analysis, but the data set did not clearly indicate what these were abbreviated as. This ambiguity made it challenging to accurately filter out the appropriate data when trying to reproduce their analysis. To further enhance reproducibility, the authors could include their analysis script or more thoroughly document their statistical methods. Using tools such as an integrated development environment like RStudio, Quarto (for reproducible documents), and version control with git would be beneficial. Despite this, I still believe the authors have adhered to good reproducibility practices.
+
+## Part B: Data analysis
+
+1.  **A colleague tries to replicate a famous paper. Despite having a larger sample size, they fail to reproduce the earlier result. They submit their results for publication and receive the following response from the editor:**
+
+> It seemed to me that you are arguing that the xxx et al (2004) result could be due to Type 1 (false positive) error due to small sample size.
+> However, small sample sizes result in low power, which in turn, can result in Type 2 errors (or false negative results).
+> Increasing power (like you did in the current research) increases the risk of a Type 1 error.
+> So your argument that xxx et al finding might be due to a Type 1 error due to small sample doesn't make any sense because small samples and low power increase Type 2 errors by reduce the chance of a Type 1 error.
+> Thus, it seems that your focus on conducting additional studies that are higher in power is misplaced.
+
+-   **Critique this response and show, using simulations, where the editor is wrong.**
+
+The editor's response is incorrect in suggesting that increasing power increases the risk of a Type 1 error. In reality, the Type 1 error rate is determined by the significance level and is not influenced by power ([figure @fig-power-1]). Higher power signifies a greater likelihood of detecting a true effect when it exists, but it does not alter the Type 1 error rate. Type 2 errors, however, are influenced by sample size and power. Increasing the sample size enhances the power of the test ([figure @fig-power-2]), thereby reducing the probability of a Type 2 error. 
+
+Plot (a) shows that the Type 1 error rate remains around the significance level, regardless of sample size, confirming that it is unaffected by power. The plot also shows that Type 2 error rates decrease as sample size increases, indicating higher power with larger sample sizes. This illustrates that increasing sample size improves the power of the test and reduces the chance of Type 2 errors without affecting the Type 1 error rate.
+
+```{r fig.cap = "My figures", fig.subcap = c("Error Rates v.s Sample Size", "Power v.s Sample Size")}
+#| label: fig-power 
+#| echo: false 
+#| message: false
+#| layout-ncol: 2
+#| fig-cap: Error rates (a), including Type I and Type II errors, plotted against varying sample sizes. Power (b), indicating the probability of correctly rejecting a false null hypothesis, plotted against varying sample sizes. 
+
+library(tidyverse)
+
+set.seed(123)
+n_simulations <- 10000
+alpha <- 0.05
+
+# Function to simulate Type I error
+simulate_type1_error <- function(sample_size) {
+  p_values <- replicate(n_simulations, {
+    x <- rnorm(sample_size)
+    t.test(x)$p.value
+  })
+  type1_error_rate <- mean(p_values < alpha)
+  return(type1_error_rate)
+}
+
+# Function to simulate Type II error and power
+simulate_power <- function(sample_size, true_effect) {
+  p_values <- replicate(n_simulations, {
+    x <- rnorm(sample_size, mean = true_effect)
+    t.test(x)$p.value
+  })
+  power <- mean(p_values < alpha)
+  type2_error_rate <- 1 - power
+  return(c(power = power, type2_error_rate = type2_error_rate))
+}
+
+# Simulate Type I error for different sample sizes
+sample_sizes <- seq(10, 100, by = 10)
+type1_errors <- sapply(sample_sizes, simulate_type1_error)
+
+# Simulate power and Type II error for different sample sizes
+true_effect <- 0.5
+power_type2_errors <- sapply(sample_sizes, simulate_power, true_effect = true_effect)
+
+# Plot results
+df <- tibble(
+  SampleSize = rep(sample_sizes, 2),
+  ErrorRate = c(type1_errors, power_type2_errors[2, ]),
+  ErrorType = rep(c("Type I Error", "Type II Error"), each = length(sample_sizes))
+)
+
+ggplot(df, aes(x = SampleSize, y = ErrorRate, color = ErrorType)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Error Rates v.s Sample Size",
+       x = "Sample Size",
+       y = "Error Rate",
+       color = "Error Type") +
+  theme_bw()
+
+
+
+sim_t_test <- function(n, delta, sd, ...){
+  mu <- rep(c(0, delta), each = n)
+  y <- mu + rnorm(length(mu), sd = sd)
+  x <- factor(rep(c("A", "B"), each = n))
+  
+  test <- t.test(y ~ x)
+  broom::glance(test) |> mutate(n = n, delta = delta, sd = sd)
+}
+
+nrep = 100
+
+n <- rep(seq(10, 100, 20), each = nrep)
+
+runs <- n |> 
+  map(\(x)sim_t_test(n = x, delta = 1, sd = 2)) |> 
+  list_rbind() |> 
+  mutate(sig = p.value <= 0.05)
+
+p <- runs  |> 
+  group_by(n) |> 
+  summarise(power = mean(sig)) |> 
+  ggplot(aes(x = n, y = power)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Power v.s Sample Size",
+       x = "Sample Size",
+       y = "Power") +
+  theme_bw()
+
+p
+```
+
+ 
+
+2.  **The `lynx` data (available with-in R) show the number of lynx (norsk: gaupe) trapped in Canada in 1821-1934. Plot the data then examine the acf and pacf for these data. What can you infer from these about the type of autocorrelation in these data?**
+
+When plotting the lynx data, a strong periodic pattern emerges, with sharp peaks every \~10 years ([figure @fig-lynx]).
+Instead of cyclically oscillating around a central value, the data suggests a baseline range for lynx trappings, with significant spikes occurring roughly every decade.
+Assuming that the number of lynx trappings is associated with the size of the lynx population, this longer-than-seasonal periodicity likely has an ecological explanation, potentially related to longer-term reproduction cycles or resource availability.
+
+The lynx-hare interaction is a classic predator-prey example.
+About every ten years, hare reproduction rates increase, eventually leading to a rise in lynx numbers, reflecting the hares' population cycle with a slight lag [@Krebs2001].
+Strong predation on hare populations reduces their numbers, which in turn reduces lynx numbers.
+These cycles were first quantitatively analyzed using Hudson’s Bay Company fur trading records from the early 1900s.
+The records, kept since 1671, include the famous time series of Canada lynx [@Elton1942].
+These cycles are a key example of Lotka-Volterra predator–prey equations, showing never-ending oscillations and significant autocorrelation at specific lags.
+
+```{r}
+#| label: fig-lynx 
+#| echo: false 
+#| fig-cap: Annual lynx trappings in Canada from 1821 to 1934, showing the fluctuations in lynx population over time with periodic peaks and troughs.
+
+plot(lynx)
+```
+
+ 
+
+A Durbin-Watson statistic of 0.56 indeed indicates positive autocorrelation. The ACF plot shows a slow decay in the beginning ([figure @fig-autocorrelation-1]), suggesting a non-stationary time series.
+The combination of exponential decay and oscillation suggests autoregression, with significant autocorrelation at lags corresponding to the cyclical pattern (approximately every 10 years, consistent with the known cycle of the lynx population).
+High autocorrelation at certain lags implies that current values are heavily influenced by previous values.
+The PACF plot also confirms an autoregressive process, showing significant spikes at lags where autocorrelation is not accounted for by shorter lags ([figure @fig-autocorrelation-2]).
+This information is useful for identifying the order of autoregressive terms when fitting an ARIMA model.
+
+```{r fig.cap = "My figures", fig.subcap = c("ACF plot", "PACF plot")}
+#| label: fig-autocorrelation
+#| echo: false
+#| message: false
+#| layout-ncol: 2
+#| fig-cap: The ACF plot (a) illustrates the correlation between the lynx trappings at different lags. Peaks beyond the shaded blue region indicate significant autocorrelation. The PACF plot (b) shows the partial correlation between the lynx trappings at different lags, after removing the effects of shorter lags. Significant spikes beyond the shaded blue region indicate significant partial autocorrelation.
+
+acf(lynx)
+pacf(lynx)
+```
+
+```{r}
+#| label: dw-test
+#| include: false
+
+library(lmtest)
+
+lynx_data <- data.frame(
+  year = time(lynx),
+  number = as.numeric(lynx)
+)
+
+lynx_lm <- lm(number ~ year, data = lynx_data)
+
+dwtest(lynx_lm)
+```
+
+ 
+
+These correlograms suggest that the autocorrelation of lynx trappings follows a higher-order process.
+By looking at the AIC and the AR values ([table @tbl-lynx]), it is most likely an AR(8) process, as the AIC is minimized at lag 8.
+However, the shifting between negative and positive values in the autocorrelation indicates that it might actually be an ARMA process, which typically exhibits exponential declines in both the ACF and PACF.
+
+```{r}
+#| label: tbl-lynx
+#| echo: false
+#| warning: false
+#| message: false
+#| tbl-cap: Lower AIC values indicate better model fit. The AR order represents the number of lagged observations considered in the autoregressive model.
+
+library(tidyr)
+library(gt)
+
+ar_fit <- ar(lynx) # fit an autoregressive model
+
+lynx_tibble <- tibble(
+  Order = seq_along(ar_fit$aic ) - 1,
+  AIC = ar_fit$aic ) |> 
+  relocate(AIC, Order)
+
+lynx_table <- lynx_tibble |> 
+  gt() |> 
+  tab_header(
+    title = md("**AIC Values for Different AR Model Orders**")
+  ) |> 
+  cols_label(
+    Order = "AR Order",
+    AIC = "AIC Value"
+  ) |> 
+  fmt_number(
+    columns = vars(AIC),
+    decimals = 2 
+  ) |> 
+  cols_align(
+  align = "center",
+  columns = everything()
+  ) |>
+  tab_options(
+    container.width = 800, 
+    container.height = 500
+  ) |> 
+  tab_style(
+    style = cell_borders(color = "red"),
+    locations = cells_body(
+      columns = 1:2,
+      rows = 9)
+  ) |> 
+  opt_stylize(style = 6, color = 'blue') 
+
+lynx_table
+```
+
+ 
+
+3.  **Chironomid species richness has been recorded in some Norwegian lakes. Three predictor variables are available: water temperature, depth and pH. We want to test the hypothesis that species richness is related to temperature.**
+
+-   **What distribution could be assumed for the response variable?** Poisson distribution.
+-   **What type of analysis is appropriate?** GLM.
+-   **Fit an appropriate parametric model to test the hypothesis.**
+
+```{r}
+#| label: load-data
+#| echo: false
+#| message: false
+
+library(here)
+library(MASS)
+
+richness <- read.delim(here("./data/chironomid.txt"))
+```
+
+```{r}
+fit_glm <- glm(noSpecies ~ temperature, data = richness, family = poisson)
+```
+
+-   **Check the model diagnostics. Justify any changes you need to make to the model.**
+-   *Residual v.s Fitted:* Looks like there is a trend in the residuals, as the line is not flat.
+-   *Normal Q-Q:* Residuals are not normally distributed.
+-   *Scale-Location:* The line is not completely flat, indicating that there is some unequal variance in the data (heteroscedasticity).
+-   *Residuals v.s Leverage:* Observations 55 and 76 seem to have some leverage.
+
+```{r}
+#| label: fig-diagnostics
+#| echo: false
+#| message: false
+#| fig-cap: Diagnostic plots  to help evaluate the assumptions and fit of the Poisson regression model used to analyze the relationship between Chironomid species richness and water temperature in Norwegian lakes.
+
+library(ggfortify)
+
+autoplot(fit_glm) + theme_bw()
+```
+
+ 
+
+Given the evidence of overdispersion from testing the models, a different distribution is needed for the model.
+Overdispersion implies a dependency between observations, exhibiting higher variance than expected and elevating the risk of Type 1 errors.
+Changing to either a quasi-Poisson or negative binomial distribution, or incorporating missing parameters, can account for this.
+Judging by the dispersion ratios (Quasi/Poisson = 2.45; Negative binomial = 0.76), I decided to go with a negative binomial distribution, which allows the variance to be larger than the mean, providing a better fit for the overdispersed data.
+This decision was also made based on the AIC values (Poisson = 1184; Negative binomial = 1107) and the theta value of the negative binomial distribution (13.40), which suggests convergence towards a Poisson distribution.
+That is how I ended up with the following model:
+
+```{r}
+fit_nb <- glm.nb(noSpecies ~ temperature, data = richness) 
+```
+
+However, I was not happy with this model when making the figure because it seemed like a bad fit. Subsequently, I added a quadratic term to the model and performed the same tests and diagnostics. The results markedly improved, with the model exhibiting no signs of overdispersion and demonstrating an even lower AIC value (1060). Consequently, I decided to move foreward with the following model:
+
+```{r}
+fit_nb2 <- glm.nb(noSpecies ~ temperature + I(temperature^2), data = richness) 
+```
+
+
+```{r}
+#| label: model-testing
+#| include: false
+
+library(performance)
+library(DHARMa)
+
+anova (fit_glm) 
+performance::check_overdispersion(fit_glm) # Overdispersed
+testOverdispersion(fit_glm)
+
+# quasi_glm <- glm(noSpecies ~ temperature, data = richness, family = quasipoisson) 
+# performance::check_overdispersion(quasi_glm)
+# summary(quasi_glm)
+
+# Negative binomial distribution:
+fit_nb <- glm.nb(noSpecies ~ temperature, data = richness) 
+
+broom::tidy(fit_nb)
+anova(fit_glm, fit_nb) # Less overdispersion
+performance::check_overdispersion(fit_nb) # Slightly underdispersed
+testOverdispersion(fit_nb)
+summary(fit_nb) 
+
+plotResiduals(fit_nb)
+
+# Adding a quadratic term:
+fit_nb2 <- glm.nb(noSpecies ~ temperature + I(temperature^2), data = richness) 
+
+autoplot(fit_nb2) + theme_bw() # Looks better
+plotResiduals(fit_nb2) # Also looks better
+performance::check_overdispersion(fit_nb2) # No overdispersion
+testOverdispersion(fit_nb2)
+summary(fit_nb2) 
+```
+ 
+
+-   **Make a figure showing the model, with uncertainty, together with the raw data.**
+
+```{r}
+#| label: fig-plot
+#| message: false
+#| echo: false
+#| fig-cap: Chironomid species richness observed in various Norwegian lakes plotted against water temperature. The blue line represents the fitted model, indicating the relationship between species richness and temperature. The shaded blue area around the fitted line depicts the 95% confidence intervals, illustrating the uncertainty in the model's predictions.
+
+new_data <- data.frame(temperature = seq(min(richness$temperature), max(richness$temperature), length.out = 100))
+
+preds <- predict(fit_nb2, newdata = new_data, type = "link", se.fit = TRUE)
+
+new_data <- new_data |> 
+  mutate(fit = exp(preds$fit),
+         lower = exp(preds$fit - 1.96 * preds$se.fit),
+         upper = exp(preds$fit + 1.96 * preds$se.fit))
+
+plot <- ggplot() +
+  geom_point(data = richness, aes(x = temperature, y = noSpecies)) +  
+  geom_line(data = new_data, aes(x = temperature, y = fit), color = "blue") +  
+  geom_ribbon(data = new_data, aes(x = temperature, ymin = lower, ymax = upper), alpha = 0.2, fill = "blue") +  
+  labs(title = "Chironomid Species Richness v.s Water Temperature",
+       x = "Water temperature (°C)",
+       y = "Species richness") +
+  theme_bw()
+
+plot
+```
+ 
+
+-   **Predict species richness at -5, 5, and 50°C and find the 95% confidence intervals.**
+
+Projections suggest that Chironomid species richness is anticipated to increase within the temperature range of -5 to 5°C, yet experience a substantial decline when temperatures reach 50°C ([table @tbl-predictions]). These predictions offer insights into potential variations in species richness under different temperature conditions, providing valuable information for understanding ecological responses to environmental changes.
+
+```{r}
+#| label: tbl-predictions
+#| echo: false
+#| message: false
+#| warning: false
+#| tbl-cap: Predicted species richness and corresponding 95% confidence intervals estimated by a negative binomial-distributed model at three different temperatures in Norwegian lakes. Predicted species richness values are provided along with their lower and upper bounds of the confidence intervals. 
+
+library(broom)
+
+nd <- tibble(temperature = c(-5, 5, 50))
+pred <- predict(fit_nb2, newdata = nd, se.fit = TRUE)
+
+estimate <- (pred$fit)
+upper <- (pred$fit + 1.96 * pred$se.fit)
+lower <-  (pred$fit - 1.96 * pred$se.fit)
+
+prediction_tibble <- tibble(
+  Temperature = nd$temperature,
+  Predicted_Species_Richness = pred$fit,
+  `95% CI Lower` = lower,
+  `95% CI Upper` = upper
+)
+
+prediction_table <- prediction_tibble |> 
+  gt() |> 
+  tab_header(
+    title = md("**Predicted Species Richness and 95% Confidence Intervals at Different Water Temperatures**")
+  ) |> 
+  cols_label(
+    Predicted_Species_Richness = "Predicted Species Richness",
+    `95% CI Lower` = "Lower",
+    `95% CI Upper` = "Upper",
+    Temperature = "Temperature (°C)"
+  ) |> 
+  cols_align(
+  align = c("center"),
+  columns = everything()
+  ) |> 
+  opt_stylize(style = 6, color = 'blue') |> 
+   fmt_number(
+    columns = vars(Predicted_Species_Richness, `95% CI Lower`, `95% CI Upper`),
+    decimals = 2 
+  ) 
+
+prediction_table
+```
+ 
+
+-   **Write a biological interpretation of your model.**
+
+The model suggests that water temperature has a significant (p \< 0.001) impact on Chironomid species richness, where each unit increase in temperature corresponds to an increase of \~0.26 units in the log of species richness ([figure @fig-plot]). There is an initial positive effect that diminishes as temperature increases further, indicating that the relationship between temperature and species richness is not strictly linear and may exhibit diminishing returns or even negative effects at extremely high temperatures.
+
+The positive association between water temperature and species richness suggests that warmer water temperatures may create more favorable conditions for a greater diversity of Chironomid species.
+Several biological mechanisms could explain this pattern:
+
+-   Metabolic Rates: Higher water temperatures can increase metabolic rates in aquatic organisms, potentially leading to faster growth and reproduction rates.
+    This may result in higher population densities and species richness.
+
+-   Habitat Availability: Warmer temperatures may influence the availability and quality of microhabitats within lakes, making them more suitable for a broader range of Chironomid species.
+
+-   Resource Availability: Temperature can affect primary productivity in aquatic ecosystems, potentially leading to increased food availability for Chironomid larvae.
+    More abundant resources can support a greater number of species.
+
+-   Species Interactions: Temperature can alter interspecific interactions, such as competition and predation, in ways that may favor a more diverse Chironomid community.
+
+Understanding the relationship between water temperature and species richness is important for predicting how these communities might respond to climate change.
+As global temperatures rise, the diversity of Chironomid species in freshwater ecosystems may increase, which could have cascading effects on ecosystem functions and services.
+However, it's also important to consider other environmental variables which might interact with temperature to influence species richness.
